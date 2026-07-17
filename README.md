@@ -357,3 +357,251 @@ python Agent.py
 * Portfolio-level risk analysis.
 * Interactive web interface using Streamlit.
 
+# Week 3: Containerized MCP-Powered Multi-Agent Deployment
+
+## Overview
+
+Week 3 transforms **Statify 2.0** from a standalone multi-agent application into a production-oriented microservice architecture.
+
+The application is decomposed into independent services communicating through the **Model Context Protocol (MCP)**. The AI orchestration layer, quantitative analytics engine, and API gateway operate as separate components deployed inside Docker containers, allowing each service to scale, update, and execute independently.
+
+This architecture follows modern AI deployment practices by separating business logic from analytical computation while exposing the entire workflow through a RESTful FastAPI interface.
+
+---
+
+# System Architecture
+
+```text
+                            Client
+
+                              │
+                     HTTP POST Request
+
+                              │
+                              ▼
+
+                     FastAPI Gateway (API)
+
+                              │
+                              ▼
+
+                   LangGraph Multi-Agent System
+
+                              │
+                              ▼
+
+                    MultiServerMCPClient
+
+                              │
+               Docker Internal Bridge Network
+                              │
+                              ▼
+
+                  MCP Quantitative Server
+
+                    ├── Trading Theory
+                    ├── Market Indicators
+                    ├── Technical Analysis
+                    └── Mathematical Models
+
+                              │
+                              ▼
+
+                     JSON Response Returned
+```
+
+---
+
+# Service Overview
+
+## 1. FastAPI Gateway (`main.py`)
+
+The FastAPI application serves as the public entry point of the platform.
+
+### Responsibilities
+
+* Exposes REST API endpoints
+* Validates incoming requests using Pydantic
+* Initializes the MCP client during application startup
+* Executes the LangGraph workflow
+* Returns structured JSON responses
+* Performs graceful shutdown of active resources
+
+The application utilizes FastAPI's **lifespan context manager** to ensure that long-lived MCP connections are created only once during startup and are closed cleanly when the application terminates.
+
+---
+
+## 2. MCP Client (`mcp_client.py`)
+
+The MCP client acts as the communication bridge between the LangGraph workflow and remote analytical services.
+
+### Responsibilities
+
+* Creates and maintains MCP client sessions
+* Connects to the MCP server over Docker's internal network
+* Discovers remote analytical tools
+* Invokes tools asynchronously
+* Handles communication failures gracefully
+* Returns structured error information to the agent workflow
+
+Rather than allowing network or execution failures to terminate the application, the client captures exceptions and propagates structured error responses back to the orchestration layer, enabling the agent to recover or retry execution.
+
+---
+
+## 3. MCP Server (`mcp_server.py`)
+
+The MCP server hosts the quantitative analysis engine.
+
+It exposes analytical capabilities as remote MCP tools that can be consumed by any compatible MCP client.
+
+### Registered Capabilities
+
+* Technical Analysis Retrieval
+* Market Indicator Analysis
+* Trading Knowledge Retrieval
+* Mathematical Calculations
+
+The server is implemented using the asynchronous MCP framework and exposed through a lightweight Starlette application running inside its own Docker container.
+
+---
+
+## 4. Quantitative Analysis Engine (`tools3.py`)
+
+This module contains the mathematical foundation of the application.
+
+Unlike previous weeks, no AI-specific logic exists here.
+
+The module focuses solely on deterministic financial computations.
+
+Implemented indicators include:
+
+* Simple Moving Average (SMA)
+* Exponential Moving Average (EMA)
+* Moving Average Convergence Divergence (MACD)
+* Signal Line
+* MACD Histogram
+
+Keeping analytical logic independent of networking and AI frameworks improves maintainability, testing, and future extensibility.
+
+---
+
+## 5. Data Validation Layer (`schema3.py`)
+
+Pydantic v2 models define the contract between the client and server.
+
+Responsibilities include:
+
+* Request validation
+* Response serialization
+* Type enforcement
+* Automatic API documentation generation
+* Input constraint verification
+
+This ensures that malformed requests are rejected before entering the analytical pipeline.
+
+---
+
+# Docker Deployment
+
+The project is deployed using Docker Compose.
+
+Containerization provides:
+
+* Service isolation
+* Reproducible deployments
+* Independent scaling
+* Simplified dependency management
+* Portable execution across environments
+
+The deployment consists of two primary services:
+
+### API Service
+
+Responsible for:
+
+* FastAPI
+* LangGraph orchestration
+* MCP Client
+* Request processing
+
+### Vector Service
+
+Responsible for:
+
+* MCP Server
+* Quantitative calculations
+* Technical analysis retrieval
+* Financial computation tools
+
+Both services communicate exclusively through Docker's internal bridge network.
+
+---
+
+# MCP Communication Flow
+
+Unlike Week 2, where all analytical components executed within the same process, Week 3 introduces protocol-based communication.
+
+Workflow:
+
+1. The client submits an analysis request to the FastAPI endpoint.
+2. FastAPI validates the payload.
+3. The LangGraph workflow determines which analytical capability is required.
+4. The MCP Client invokes the corresponding remote MCP tool.
+5. The MCP Server executes the requested computation.
+6. Results are streamed back to the client over the MCP transport.
+7. The LangGraph workflow integrates the returned context.
+8. A structured investment report is generated and returned to the client.
+
+This design decouples orchestration from computation, allowing analytical services to evolve independently of the AI workflow.
+
+---
+
+# Fault-Tolerant Execution
+
+Reliability is a key objective of the Week 3 architecture.
+
+If an MCP communication error or remote tool failure occurs:
+
+* the exception is captured,
+* a structured error is propagated back to the workflow,
+* the application remains operational,
+* and the agent can decide whether to retry, request alternative information, or return a meaningful failure response.
+
+This approach prevents individual service failures from terminating the overall system.
+
+---
+
+# Technology Stack
+
+* Python 3.12
+* FastAPI
+* LangGraph
+* LangChain
+* Model Context Protocol (MCP)
+* langchain-mcp-adapters
+* Starlette
+* Docker
+* Docker Compose
+* Pydantic v2
+* Uvicorn
+
+---
+
+# Architectural Improvements from Week 2
+
+| Week 2                          | Week 3                                            |
+| ------------------------------- | ------------------------------------------------- |
+| Monolithic multi-agent workflow | Distributed microservice architecture             |
+| Local analytical execution      | Remote MCP-powered analytical services            |
+| Direct module invocation        | Protocol-driven tool discovery and execution      |
+| Single-process execution        | Multi-container deployment                        |
+| Local orchestration             | Containerized API gateway with remote computation |
+| Basic deployment                | Production-oriented Docker environment            |
+
+---
+
+# Conclusion
+
+Week 3 completes the transition of **Statify 2.0** from a prototype conversational financial assistant into a modular, service-oriented AI platform.
+
+By introducing Docker, FastAPI, MCP-based communication, and distributed analytical services, the application now reflects many of the architectural principles used in modern production AI systems, including loose coupling, protocol-driven interoperability, scalability, and fault tolerance.
